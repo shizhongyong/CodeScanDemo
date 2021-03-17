@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="viewfinder_border">1dp</dimen>
+    <dimen name="viewfinder_corner_size">3dp</dimen>
+    <dimen name="viewfinder_corner_length">15dp</dimen>
+</resources>
