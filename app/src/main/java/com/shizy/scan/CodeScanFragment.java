@@ -24,6 +24,7 @@ import androidx.fragment.app.Fragment;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.zxing.Result;
+import com.google.zxing.ResultPoint;
 import com.shizy.scan.view.ViewfinderView;
 
 import java.util.concurrent.ExecutionException;
@@ -41,7 +42,14 @@ public class CodeScanFragment extends Fragment {
         @Override
         public void analyzerResult(Result result) {
             beepManager.playBeepSoundAndVibrate();
+            stopScan();
             Log.d(TAG, "analyze text: " + result.getText());
+            ResultPoint[] points = result.getResultPoints();
+            if (points != null) {
+                for (ResultPoint point : points) {
+                    Log.d(TAG, "analyze x = " + point.getX() + "   y = " + point.getY());
+                }
+            }
         }
     };
 
@@ -149,11 +157,17 @@ public class CodeScanFragment extends Fragment {
     }
 
     public void startScan() {
-        codeAnalyzer.setAnalyzeEnable(true);
+        requireActivity().runOnUiThread(() -> {
+            codeAnalyzer.setAnalyzeEnable(true);
+            viewfinderView.startScan();
+        });
     }
 
     public void stopScan() {
-        codeAnalyzer.setAnalyzeEnable(false);
+        requireActivity().runOnUiThread(() -> {
+            codeAnalyzer.setAnalyzeEnable(false);
+            viewfinderView.stopScan();
+        });
     }
 
     private boolean hasPermissions(@NonNull Context context) {

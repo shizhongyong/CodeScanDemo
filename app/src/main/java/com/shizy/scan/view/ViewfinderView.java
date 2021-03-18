@@ -1,5 +1,6 @@
 package com.shizy.scan.view;
 
+import android.animation.ValueAnimator;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.res.Resources;
@@ -8,7 +9,9 @@ import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.View;
+import android.view.animation.LinearInterpolator;
 
 import com.google.zxing.ResultPoint;
 import com.shizy.scan.R;
@@ -24,8 +27,7 @@ import java.util.List;
  */
 public final class ViewfinderView extends View {
 
-    private static final int[] SCANNER_ALPHA = {0, 64, 128, 192, 255, 192, 128, 64};
-    private static final long ANIMATION_DELAY = 10L;
+    private static final long ANIMATION_DELAY = 15L;
     private static final int CURRENT_POINT_OPACITY = 0xA0;
     private static final int MAX_RESULT_POINTS = 20;
     private static final int POINT_SIZE = 6;
@@ -42,12 +44,13 @@ public final class ViewfinderView extends View {
     private final int cornerSize;
     private final float cornerOffset;
     private final int cornerLength;
-    private int scannerAlpha;
+    //    private int scannerAlpha;
     private List<ResultPoint> possibleResultPoints;
     private List<ResultPoint> lastPossibleResultPoints;
 
-    private Rect framingRect = new Rect();
-    private int laserOffset = 0;
+    private final Rect framingRect = new Rect();
+    private final ValueAnimator laserAnimator;
+    private boolean scanning = true;
 
     // This constructor is used when the class is built from an XML resource.
     public ViewfinderView(Context context, AttributeSet attrs) {
@@ -66,9 +69,14 @@ public final class ViewfinderView extends View {
         cornerSize = resources.getDimensionPixelSize(R.dimen.viewfinder_corner_size);
         cornerLength = resources.getDimensionPixelSize(R.dimen.viewfinder_corner_length);
         cornerOffset = cornerSize / 2.0f;
-        scannerAlpha = 0;
         possibleResultPoints = new ArrayList<>(5);
         lastPossibleResultPoints = null;
+
+        laserAnimator = ValueAnimator.ofFloat(0f, 1f);
+        laserAnimator.setDuration(2000L);
+        laserAnimator.setInterpolator(new LinearInterpolator());
+        laserAnimator.setRepeatCount(ValueAnimator.INFINITE);
+        laserAnimator.start();
     }
 
     @Override
@@ -94,7 +102,9 @@ public final class ViewfinderView extends View {
             paint.setAlpha(CURRENT_POINT_OPACITY);
             canvas.drawBitmap(resultBitmap, null, frame, paint);
         } else {
-            drawLaser(canvas);
+            if (scanning) {
+                drawLaser(canvas);
+            }
 //            float scaleX = frame.width() / (float) previewFrame.width();
 //            float scaleY = frame.height() / (float) previewFrame.height();
 
@@ -141,6 +151,7 @@ public final class ViewfinderView extends View {
     }
 
     private void drawMask(Canvas canvas) {
+        paint.setStyle(Paint.Style.FILL);
         final Rect frame = framingRect;
         final int width = canvas.getWidth();
         final int height = canvas.getHeight();
@@ -161,11 +172,11 @@ public final class ViewfinderView extends View {
     }
 
     private void drawCorner(Canvas canvas) {
-        final Rect frame = framingRect;
         paint.setStyle(Paint.Style.STROKE);
         paint.setColor(cornerColor);
         paint.setStrokeWidth(cornerSize);
 
+        final Rect frame = framingRect;
         canvas.drawLine(frame.left - cornerOffset, frame.top,
                 frame.left - cornerOffset + cornerLength, frame.top, paint);
         canvas.drawLine(frame.left, frame.top - cornerOffset,
@@ -192,9 +203,12 @@ public final class ViewfinderView extends View {
         paint.setColor(laserColor);
 
         final Rect frame = framingRect;
-        final int laserTop = frame.top + laserOffset;
-        laserOffset = (laserOffset + 4) % (frame.bottom - frame.top - 2);
-        canvas.drawRect(frame.left + 2, laserTop, frame.right - 2, laserTop + 2, paint);
+
+        final float fraction = laserAnimator.getAnimatedFraction();
+        final int laserTop = frame.top + (int) ((frame.bottom - frame.top - 10) * fraction);
+        paint.setAlpha((int) (Math.sin(fraction * Math.PI) * 255));
+        canvas.drawRect(frame.left + 10, laserTop, frame.right - 10, laserTop + 2, paint);
+        paint.setAlpha(255);
     }
 
     private void calculateFramingRect() {
@@ -207,6 +221,20 @@ public final class ViewfinderView extends View {
         framingRect.top = top;
         framingRect.right = left + size;
         framingRect.bottom = top + size;
+    }
+
+    public void startScan() {
+        scanning = true;
+        if (!laserAnimator.isStarted()) {
+            laserAnimator.start();
+        }
+    }
+
+    public void stopScan() {
+        scanning = false;
+        if (laserAnimator.isStarted()) {
+            laserAnimator.cancel();
+        }
     }
 
     public void drawViewfinder() {
